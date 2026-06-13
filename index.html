@@ -489,16 +489,16 @@ const OPIOID_TABLE = [
   {
     id:'fentanyl_patch', name:'フェンタニル貼付剤', warning:null, isPatch:true,
     routes:[
-      {id:'patch', label:'貼付剤', toOME:2.4, unit:'mcg/時', group:'patch', isPatch:true},
-      // 25mcg/時 × 2.4 = 60mg/日 OME ※要確認
+      {id:'patch', label:'貼付剤', toOME:60, unit:'mg/日', group:'patch', isPatch:true},
+      // 1mg/日(フェントステープ) × 60 = 60mg/日 OME（1mg≒25mcg/時）
     ],
   },
   {
     id:'fentanyl_iv', name:'フェンタニル注', warning:null,
     routes:[
-      {id:'iv',      label:'静注',       toOME:100, unit:'mg/日', group:'injection'}, // 0.3mg/日×100=30mg OME ※要確認
-      {id:'cont_sc', label:'持続皮下注', toOME:100, unit:'mg/日', group:'continuous'},
-      {id:'cont_iv', label:'持続静注',   toOME:100, unit:'mg/日', group:'continuous'},
+      {id:'iv',      label:'静注',       toOME:2.4, unit:'µg/時', group:'injection',  isPerHour:true}, // 25µg/時×2.4=60mg/日 OME
+      {id:'cont_sc', label:'持続皮下注', toOME:2.4, unit:'µg/時', group:'continuous', isPerHour:true},
+      {id:'cont_iv', label:'持続静注',   toOME:2.4, unit:'µg/時', group:'continuous', isPerHour:true},
     ],
   },
   {
@@ -594,8 +594,10 @@ function buildConvResults(ome){
     if(drug.isMethadone)continue;
     for(const route of drug.routes){
       if(!route.toOME)continue;
+      const isInj=route.group==='injection'||route.group==='continuous';
       res.push({drugId:drug.id,drugName:drug.name,routeId:route.id,routeLabel:route.label,
-        group:route.group,amount:sr(ome/route.toOME,2),unit:route.unit,warning:drug.warning});
+        group:route.group,amount:sr(ome/route.toOME,3),unit:route.unit,warning:drug.warning,
+        isPerHour:!!route.isPerHour,showHourly:isInj});
     }
   }
   return res;
@@ -667,7 +669,7 @@ const KEY_CONV=[
   {name:'オキシコドン経口',       toOME:1.5,  unit:'mg/日'},
   {name:'ヒドロモルフォン経口',   toOME:5.0,  unit:'mg/日'},
   {name:'ヒドロモルフォン皮下注', toOME:10.0, unit:'mg/日'},
-  {name:'フェンタニル注 持続',    toOME:100,  unit:'mg/日'},
+  {name:'フェンタニル注 持続',    toOME:2.4,  unit:'µg/時'},
 ];
 
 function ConversionTab({dark,onOmeChange}){
@@ -678,7 +680,7 @@ function ConversionTab({dark,onOmeChange}){
   const selRoute=selDrug?.routes.find(r=>r.id===routeId);
   useEffect(()=>{if(selDrug&&!selDrug.routes.find(r=>r.id===routeId))setRouteId(selDrug.routes[0].id);},[drugId]);
   const ome=useMemo(()=>{
-    const d=parseFloat(dose);
+    const d=parseFloat(String(dose).replace(',','.'));
     if(isNaN(d)||d<=0)return null;
     if(selDrug?.isMethadone)return null;
     return calcOME(d,selRoute?.toOME);
@@ -713,9 +715,9 @@ function ConversionTab({dark,onOmeChange}){
           </div>
         </div>
         <div>
-          <p class=${`text-xs mb-1 ${lbl}`}>1日投与量（${selRoute?.unit||'mg/日'}）</p>
+          <p class=${`text-xs mb-1 ${lbl}`}>${selRoute?.isPerHour?'時間投与量':'1日投与量'}（${selRoute?.unit||'mg/日'}）</p>
           <div class="flex gap-2 items-center">
-            <input type="number" inputMode="decimal" value=${dose} onChange=${e=>setDose(e.target.value)} placeholder="例：30"
+            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${dose} onChange=${e=>setDose(e.target.value)} placeholder="例：30"
               class=${`flex-1 rounded-lg border px-4 py-3 text-xl font-mono ${inp}`}/>
             <span class=${`text-sm ${lbl} shrink-0`}>${selRoute?.unit||'mg/日'}</span>
           </div>
@@ -744,8 +746,27 @@ function ConversionTab({dark,onOmeChange}){
                       <span class=${`ml-1 text-xs ${dark?'text-slate-500':'text-slate-400'}`}>${row.routeLabel}</span>
                     </td>
                     <td class="px-4 py-3 text-right">
-                      <span class=${`font-mono font-semibold text-base ${dark?'text-slate-100':'text-slate-900'}`}>${fmt(row.amount)}</span>
-                      <span class=${`ml-1 text-xs ${dark?'text-slate-400':'text-slate-500'}`}>${row.unit}</span>
+                      ${row.showHourly ? html`
+                        <div>
+                          <span class=${`font-mono font-semibold text-base ${dark?'text-slate-100':'text-slate-900'}`}>
+                            ${row.isPerHour ? fmt(row.amount) : fmt(sr(row.amount/24,3))}
+                          </span>
+                          <span class=${`ml-1 text-xs ${dark?'text-slate-400':'text-slate-500'}`}>
+                            ${row.isPerHour ? row.unit : row.unit.replace('/日','/時')}
+                          </span>
+                        </div>
+                        <div class="mt-0.5">
+                          <span class=${`font-mono text-xs ${dark?'text-slate-500':'text-slate-400'}`}>
+                            ${row.isPerHour ? fmt(sr(row.amount*24,2)) : fmt(row.amount)}
+                          </span>
+                          <span class=${`ml-1 text-xs ${dark?'text-slate-600':'text-slate-400'}`}>
+                            ${row.isPerHour ? row.unit.replace('/時','/日') : row.unit}
+                          </span>
+                        </div>
+                      ` : html`
+                        <span class=${`font-mono font-semibold text-base ${dark?'text-slate-100':'text-slate-900'}`}>${fmt(row.amount)}</span>
+                        <span class=${`ml-1 text-xs ${dark?'text-slate-400':'text-slate-500'}`}>${row.unit}</span>
+                      `}
                     </td>
                   </tr>`)}
               </tbody></table>
@@ -808,7 +829,7 @@ const RESCUE_DRUGS=[
   {name:'ヒドロモルフォン皮下注',toOME:10.0, unit:'mg', group:'sc'},
   {name:'モルヒネ静注',          toOME:2.0,  unit:'mg', group:'iv'},
   {name:'ヒドロモルフォン静注',  toOME:10.0, unit:'mg', group:'iv'},
-  {name:'フェンタニル注',        toOME:100,  unit:'mg', group:'iv', isFent:true},
+  {name:'フェンタニル注',        toOME:0.1,  unit:'µg', group:'iv'},
 ];
 const RG_LABELS={oral:'経口レスキュー',sc:'皮下注レスキュー',iv:'静注レスキュー'};
 const RG_COLOR ={oral:'text-emerald-500',sc:'text-blue-500',iv:'text-violet-500'};
@@ -817,7 +838,7 @@ function RescueTab({dark,sharedOme,sharedDrugName}){
   const [manual,setManual]=useState('');
   const [useManual,setUseManual]=useState(false);
   const ome=useMemo(()=>{
-    if(useManual){const v=parseFloat(manual);return isNaN(v)||v<=0?null:v;}
+    if(useManual){const v=parseFloat(String(manual).replace(',','.'));return isNaN(v)||v<=0?null:v;}
     return sharedOme;
   },[useManual,manual,sharedOme]);
   const grouped=useMemo(()=>{
@@ -858,7 +879,7 @@ function RescueTab({dark,sharedOme,sharedDrugName}){
           <div>
             <p class=${`text-xs mb-1 ${lbl}`}>OME（mg/日）</p>
             <div class="flex gap-2 items-center">
-              <input type="number" inputMode="decimal" value=${manual} onChange=${e=>setManual(e.target.value)} placeholder="例：60"
+              <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${manual} onChange=${e=>setManual(e.target.value)} placeholder="例：60"
                 class=${`flex-1 rounded-lg border px-4 py-3 text-xl font-mono ${inp}`}/>
               <span class=${`text-sm ${lbl} shrink-0`}>mg/日</span>
             </div>
@@ -907,7 +928,7 @@ function CoudecTab({dark,drugSettings}){
   const [maxVol,setMaxVol]=useState('60');
   const selDrug=drugSettings.find(d=>d.id===drugId);
   const cands=useMemo(()=>{
-    const d=parseFloat(target),r=parseFloat(rate),v=parseFloat(maxVol);
+    const d=parseFloat(String(target).replace(',','.')),r=parseFloat(String(rate).replace(',','.')),v=parseFloat(String(maxVol).replace(',','.'));
     if(!selDrug||isNaN(d)||d<=0||isNaN(r)||r<=0||isNaN(v)||v<=0)return[];
     return calcCoudec({targetDose:d,rate:r,maxVolume:v,concentration:selDrug.concentration,ampuleSize:selDrug.ampuleSize,ampuleMg:selDrug.ampuleMg});
   },[target,rate,maxVol,selDrug]);
@@ -941,7 +962,7 @@ function CoudecTab({dark,drugSettings}){
         <div>
           <p class=${`text-xs mb-1 ${lbl}`}>目標投与量（mg/日）</p>
           <div class="flex gap-2 items-center">
-            <input type="number" inputMode="decimal" value=${target} onChange=${e=>setTarget(e.target.value)} placeholder="例：30"
+            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${target} onChange=${e=>setTarget(e.target.value)} placeholder="例：30"
               class=${`flex-1 rounded-lg border px-4 py-3 text-xl font-mono ${inp}`}/>
             <span class=${`text-sm ${lbl} shrink-0`}>mg/日</span>
           </div>
@@ -950,12 +971,12 @@ function CoudecTab({dark,drugSettings}){
         <div class="flex gap-3">
           <div class="flex-1">
             <p class=${`text-xs mb-1 ${lbl}`}>投与速度（mL/時）</p>
-            <input type="number" inputMode="decimal" value=${rate} onChange=${e=>setRate(e.target.value)}
+            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${rate} onChange=${e=>setRate(e.target.value)}
               class=${`w-full rounded-lg border px-3 py-3 text-lg font-mono text-center ${inp}`}/>
           </div>
           <div class="flex-1">
             <p class=${`text-xs mb-1 ${lbl}`}>最大総量（mL）</p>
-            <input type="number" inputMode="decimal" value=${maxVol} onChange=${e=>setMaxVol(e.target.value)}
+            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${maxVol} onChange=${e=>setMaxVol(e.target.value)}
               class=${`w-full rounded-lg border px-3 py-3 text-lg font-mono text-center ${inp}`}/>
           </div>
         </div>
@@ -1058,7 +1079,7 @@ function SettingsTab({dark,drugSettings,onDrugSettingsChange}){
                         ${[['濃度 mg/mL','concentration'],['mL/アンプル','ampuleSize'],['mg/アンプル','ampuleMg']].map(([pl,key])=>html`
                           <div key=${key}>
                             <p class=${`text-xs mb-1 ${lbl}`}>${pl}</p>
-                            <input type="number" inputMode="decimal" value=${editVals[key]}
+                            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${editVals[key]}
                               onChange=${e=>setEditVals({...editVals,[key]:e.target.value})}
                               class=${`w-full rounded-lg border px-2 py-2 text-sm font-mono text-center ${inp}`}/>
                           </div>`)}
