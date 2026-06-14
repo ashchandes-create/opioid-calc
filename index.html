@@ -730,8 +730,10 @@ function ConversionTab({dark,onOmeChange}){
         <div>
           <p class=${`text-xs mb-1 ${lbl}`}>${selRoute?.isPerHour?'時間投与量':'1日投与量'}（${selRoute?.unit||'mg/日'}）</p>
           <div class="flex gap-2 items-center">
-            <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${dose} onChange=${e=>setDose(numInput(e.target.value))} placeholder="例：30"
+            <input type="text" inputMode="numeric" value=${dose} onChange=${e=>setDose(numInput(e.target.value))} placeholder="例：30"
               class=${`flex-1 rounded-lg border px-4 py-3 text-xl font-mono ${inp}`}/>
+            <button onClick=${()=>setDose(v=>v.includes('.')?v:(v||'')+'.')}
+              class=${`shrink-0 w-12 h-12 rounded-lg border text-2xl font-bold ${dark?'bg-slate-700 border-slate-600 text-slate-100':'bg-slate-100 border-slate-300 text-slate-800'}`}>.</button>
             <span class=${`text-sm ${lbl} shrink-0`}>${selRoute?.unit||'mg/日'}</span>
           </div>
         </div>
@@ -892,8 +894,10 @@ function RescueTab({dark,sharedOme,sharedDrugName}){
           <div>
             <p class=${`text-xs mb-1 ${lbl}`}>OME（mg/日）</p>
             <div class="flex gap-2 items-center">
-              <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${manual} onChange=${e=>setManual(numInput(e.target.value))} placeholder="例：60"
+              <input type="text" inputMode="numeric" value=${manual} onChange=${e=>setManual(numInput(e.target.value))} placeholder="例：60"
                 class=${`flex-1 rounded-lg border px-4 py-3 text-xl font-mono ${inp}`}/>
+              <button onClick=${()=>setManual(v=>v.includes('.')?v:(v||'')+'.')}
+                class=${`shrink-0 w-12 h-12 rounded-lg border text-2xl font-bold ${dark?'bg-slate-700 border-slate-600 text-slate-100':'bg-slate-100 border-slate-300 text-slate-800'}`}>.</button>
               <span class=${`text-sm ${lbl} shrink-0`}>mg/日</span>
             </div>
           </div>`}
@@ -975,8 +979,10 @@ function CoudecTab({dark,drugSettings}){
         <div>
           <p class=${`text-xs mb-1 ${lbl}`}>目標投与量（mg/日）</p>
           <div class="flex gap-2 items-center">
-            <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${target} onChange=${e=>setTarget(numInput(e.target.value))} placeholder="例：30"
+            <input type="text" inputMode="numeric" value=${target} onChange=${e=>setTarget(numInput(e.target.value))} placeholder="例：30"
               class=${`flex-1 rounded-lg border px-4 py-3 text-xl font-mono ${inp}`}/>
+            <button onClick=${()=>setTarget(v=>v.includes('.')?v:(v||'')+'.')}
+              class=${`shrink-0 w-12 h-12 rounded-lg border text-2xl font-bold ${dark?'bg-slate-700 border-slate-600 text-slate-100':'bg-slate-100 border-slate-300 text-slate-800'}`}>.</button>
             <span class=${`text-sm ${lbl} shrink-0`}>mg/日</span>
           </div>
           ${selDrug?.id==='fentanyl'&&html`<p class=${`text-xs mt-1 ${muted}`}>※フェンタニルはmg/日で入力（例：0.6mg/日 = 600mcg/日）</p>`}
@@ -984,13 +990,21 @@ function CoudecTab({dark,drugSettings}){
         <div class="flex gap-3">
           <div class="flex-1">
             <p class=${`text-xs mb-1 ${lbl}`}>投与速度（mL/時）</p>
-            <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${rate} onChange=${e=>setRate(numInput(e.target.value))}
-              class=${`w-full rounded-lg border px-3 py-3 text-lg font-mono text-center ${inp}`}/>
+            <div class="flex gap-1">
+              <input type="text" inputMode="numeric" value=${rate} onChange=${e=>setRate(numInput(e.target.value))}
+                class=${`flex-1 min-w-0 rounded-lg border px-2 py-3 text-lg font-mono text-center ${inp}`}/>
+              <button onClick=${()=>setRate(v=>v.includes('.')?v:(v||'')+'.')}
+                class=${`shrink-0 w-10 rounded-lg border text-xl font-bold ${dark?'bg-slate-700 border-slate-600 text-slate-100':'bg-slate-100 border-slate-300 text-slate-800'}`}>.</button>
+            </div>
           </div>
           <div class="flex-1">
             <p class=${`text-xs mb-1 ${lbl}`}>最大総量（mL）</p>
-            <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${maxVol} onChange=${e=>setMaxVol(numInput(e.target.value))}
-              class=${`w-full rounded-lg border px-3 py-3 text-lg font-mono text-center ${inp}`}/>
+            <div class="flex gap-1">
+              <input type="text" inputMode="numeric" value=${maxVol} onChange=${e=>setMaxVol(numInput(e.target.value))}
+                class=${`flex-1 min-w-0 rounded-lg border px-2 py-3 text-lg font-mono text-center ${inp}`}/>
+              <button onClick=${()=>setMaxVol(v=>v.includes('.')?v:(v||'')+'.')}
+                class=${`shrink-0 w-10 rounded-lg border text-xl font-bold ${dark?'bg-slate-700 border-slate-600 text-slate-100':'bg-slate-100 border-slate-300 text-slate-800'}`}>.</button>
+            </div>
           </div>
         </div>
         ${rate&&maxVol&&parseFloat(rate)>0&&parseFloat(maxVol)>0&&html`
