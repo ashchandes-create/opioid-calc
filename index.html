@@ -574,6 +574,19 @@ const CATEGORY_LABELS = {opioid:'オピオイド', sedative:'鎮静・向精神�
 // ================================================================
 // ④ 計算ユーティリティ
 // ================================================================
+// 数値入力フィルタ：日本語iOSで小数点位置に挿入されるハイフン・全角文字を除去
+function numInput(raw){
+  // 全角数字→半角、全角ピリオド・コンマ→ドット、それ以外の非数字文字を除去
+  let v=String(raw)
+    .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)) // 全角数字
+    .replace(/[．。，、・ー－—−]/g,'.') // 各種全角区切り→ドット
+    .replace(/[^0-9.]/g,'');           // それ以外の非数字を除去
+  // ドットが2つ以上ある場合は最初の1つだけ残す
+  const parts=v.split('.');
+  if(parts.length>2)v=parts[0]+'.'+parts.slice(1).join('');
+  return v;
+}
+function parseNum(s){return parseFloat(String(s).replace(',','.'))}
 function sr(v,d=2){if(v==null||isNaN(v))return null;return Math.round(v*Math.pow(10,d))/Math.pow(10,d);}
 function fmt(v,unit=''){
   if(v==null||isNaN(v))return '—';
@@ -680,7 +693,7 @@ function ConversionTab({dark,onOmeChange}){
   const selRoute=selDrug?.routes.find(r=>r.id===routeId);
   useEffect(()=>{if(selDrug&&!selDrug.routes.find(r=>r.id===routeId))setRouteId(selDrug.routes[0].id);},[drugId]);
   const ome=useMemo(()=>{
-    const d=parseFloat(String(dose).replace(',','.'));
+    const d=parseNum(dose);
     if(isNaN(d)||d<=0)return null;
     if(selDrug?.isMethadone)return null;
     return calcOME(d,selRoute?.toOME);
@@ -717,7 +730,7 @@ function ConversionTab({dark,onOmeChange}){
         <div>
           <p class=${`text-xs mb-1 ${lbl}`}>${selRoute?.isPerHour?'時間投与量':'1日投与量'}（${selRoute?.unit||'mg/日'}）</p>
           <div class="flex gap-2 items-center">
-            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${dose} onChange=${e=>setDose(e.target.value)} placeholder="例：30"
+            <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${dose} onChange=${e=>setDose(numInput(e.target.value))} placeholder="例：30"
               class=${`flex-1 rounded-lg border px-4 py-3 text-xl font-mono ${inp}`}/>
             <span class=${`text-sm ${lbl} shrink-0`}>${selRoute?.unit||'mg/日'}</span>
           </div>
@@ -838,7 +851,7 @@ function RescueTab({dark,sharedOme,sharedDrugName}){
   const [manual,setManual]=useState('');
   const [useManual,setUseManual]=useState(false);
   const ome=useMemo(()=>{
-    if(useManual){const v=parseFloat(String(manual).replace(',','.'));return isNaN(v)||v<=0?null:v;}
+    if(useManual){const v=parseNum(manual);return isNaN(v)||v<=0?null:v;}
     return sharedOme;
   },[useManual,manual,sharedOme]);
   const grouped=useMemo(()=>{
@@ -879,7 +892,7 @@ function RescueTab({dark,sharedOme,sharedDrugName}){
           <div>
             <p class=${`text-xs mb-1 ${lbl}`}>OME（mg/日）</p>
             <div class="flex gap-2 items-center">
-              <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${manual} onChange=${e=>setManual(e.target.value)} placeholder="例：60"
+              <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${manual} onChange=${e=>setManual(numInput(e.target.value))} placeholder="例：60"
                 class=${`flex-1 rounded-lg border px-4 py-3 text-xl font-mono ${inp}`}/>
               <span class=${`text-sm ${lbl} shrink-0`}>mg/日</span>
             </div>
@@ -928,7 +941,7 @@ function CoudecTab({dark,drugSettings}){
   const [maxVol,setMaxVol]=useState('60');
   const selDrug=drugSettings.find(d=>d.id===drugId);
   const cands=useMemo(()=>{
-    const d=parseFloat(String(target).replace(',','.')),r=parseFloat(String(rate).replace(',','.')),v=parseFloat(String(maxVol).replace(',','.'));
+    const d=parseNum(target),r=parseNum(rate),v=parseNum(maxVol);
     if(!selDrug||isNaN(d)||d<=0||isNaN(r)||r<=0||isNaN(v)||v<=0)return[];
     return calcCoudec({targetDose:d,rate:r,maxVolume:v,concentration:selDrug.concentration,ampuleSize:selDrug.ampuleSize,ampuleMg:selDrug.ampuleMg});
   },[target,rate,maxVol,selDrug]);
@@ -962,7 +975,7 @@ function CoudecTab({dark,drugSettings}){
         <div>
           <p class=${`text-xs mb-1 ${lbl}`}>目標投与量（mg/日）</p>
           <div class="flex gap-2 items-center">
-            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${target} onChange=${e=>setTarget(e.target.value)} placeholder="例：30"
+            <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${target} onChange=${e=>setTarget(numInput(e.target.value))} placeholder="例：30"
               class=${`flex-1 rounded-lg border px-4 py-3 text-xl font-mono ${inp}`}/>
             <span class=${`text-sm ${lbl} shrink-0`}>mg/日</span>
           </div>
@@ -971,12 +984,12 @@ function CoudecTab({dark,drugSettings}){
         <div class="flex gap-3">
           <div class="flex-1">
             <p class=${`text-xs mb-1 ${lbl}`}>投与速度（mL/時）</p>
-            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${rate} onChange=${e=>setRate(e.target.value)}
+            <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${rate} onChange=${e=>setRate(numInput(e.target.value))}
               class=${`w-full rounded-lg border px-3 py-3 text-lg font-mono text-center ${inp}`}/>
           </div>
           <div class="flex-1">
             <p class=${`text-xs mb-1 ${lbl}`}>最大総量（mL）</p>
-            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${maxVol} onChange=${e=>setMaxVol(e.target.value)}
+            <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${maxVol} onChange=${e=>setMaxVol(numInput(e.target.value))}
               class=${`w-full rounded-lg border px-3 py-3 text-lg font-mono text-center ${inp}`}/>
           </div>
         </div>
@@ -1079,7 +1092,7 @@ function SettingsTab({dark,drugSettings,onDrugSettingsChange}){
                         ${[['濃度 mg/mL','concentration'],['mL/アンプル','ampuleSize'],['mg/アンプル','ampuleMg']].map(([pl,key])=>html`
                           <div key=${key}>
                             <p class=${`text-xs mb-1 ${lbl}`}>${pl}</p>
-                            <input type="text" inputMode="decimal" pattern="[0-9.,]*" value=${editVals[key]}
+                            <input type="text" inputMode="decimal" pattern="[0-9.]*" value=${editVals[key]}
                               onChange=${e=>setEditVals({...editVals,[key]:e.target.value})}
                               class=${`w-full rounded-lg border px-2 py-2 text-sm font-mono text-center ${inp}`}/>
                           </div>`)}
